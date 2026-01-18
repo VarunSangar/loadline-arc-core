@@ -1,7 +1,13 @@
 import asyncio
 
-from eeg.simulator import EEGSimulator
-from eeg.ble_adapter import BLEEEGAdapter
+# ==============================
+# HARDWARE INTERFACE
+# ==============================
+from hardware_interface.eeg_device import EEGDevice
+
+# ==============================
+# CORE SYSTEM MODULES
+# ==============================
 from cognition.state import CognitiveState
 from vision.context import VisionContext
 from reasoning.subject import SubjectClassifier
@@ -10,48 +16,95 @@ from reasoning.mcq import MCQReasoner
 from output.voice import VoiceOutput
 from integration.loadline_api import LoadlineAPI
 
+
+# ==================================================
+# LOADLINE ARC — MAIN ORCHESTRATOR
+# ==================================================
+
 class LoadlineARC:
     def __init__(self):
-        try:
-            self.eeg = BLEEEGAdapter()
-            self.eeg.connect()
-        except:
-            self.eeg = EEGSimulator()
+        # EEG source (real or simulated decided internally)
+        self.eeg = EEGDevice()
 
+        # Cognitive modeling
         self.cognition = CognitiveState()
+
+        # Context + reasoning
         self.vision = VisionContext()
         self.subjects = SubjectClassifier()
         self.math = MathSolver()
         self.mcq = MCQReasoner()
+
+        # Output
         self.voice = VoiceOutput()
 
+        # Loadline integration (existing platform)
         self.loadline = LoadlineAPI(
-            endpoint="https://your-backend/api/cli"
+            endpoint="https://varunsangar.github.io/LOADLINE/"
         )
+
+        print("[ARC] Initialized successfully")
 
     async def run(self):
         while True:
+            # ==============================
+            # EEG → COGNITIVE STATE
+            # ==============================
             eeg = self.eeg.read()
             state = self.cognition.analyze(eeg)
 
-            print("[STATE]", state)
+            print("[COGNITIVE STATE]", state)
 
+            # Voice intervention if overloaded
             if state["state"] == "overloaded":
-                self.voice.speak("Cognitive load is high. Slow down.")
+                self.voice.speak(
+                    "Cognitive load is high. Slow your breathing and refocus."
+                )
 
+            # ==============================
+            # CAMERA → CONTEXT
+            # ==============================
             text = self.vision.capture_text()
+
+            if not text or not text.strip():
+                await asyncio.sleep(2)
+                continue
+
             subject = self.subjects.classify(text)
+            print("[SUBJECT]", subject)
 
-            self.loadline.send_cli(state["cli"], subject)
+            # ==============================
+            # SEND DATA TO LOADLINE
+            # ==============================
+            try:
+                self.loadline.send_cli(
+                    cli=state.get("cli", state.get("load")),
+                    subject=subject
+                )
+            except Exception as e:
+                print("[LOADLINE WARNING]", e)
 
+            # ==============================
+            # DECISION LOGIC
+            # ==============================
             if subject == "math":
                 response = self.math.solve(text)
+                print("[MATH RESPONSE]", response)
                 self.voice.speak(response)
+
             elif subject != "unknown":
                 guidance = self.mcq.analyze(text)
-                self.voice.speak("I can guide you through this concept.")
+                print("[GUIDANCE]", guidance)
+                self.voice.speak(
+                    "This is not math. I can guide you through the reasoning."
+                )
 
             await asyncio.sleep(2)
+
+
+# ==============================
+# ENTRY POINT
+# ==============================
 
 if __name__ == "__main__":
     arc = LoadlineARC()
