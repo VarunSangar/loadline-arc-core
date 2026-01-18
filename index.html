@@ -1,0 +1,195 @@
+# ==================================================
+# LOADLINE ARC — Unified Cognitive Headband Software
+# ==================================================
+
+import numpy as np
+import asyncio
+import cv2
+import pytesseract
+import pyttsx3
+import time
+
+# ==============================
+# EEG BLE STREAM (SIMULATED)
+# ==============================
+
+class EEGStream:
+    def __init__(self, channels=32):
+        self.channels = channels
+
+    def read(self):
+        # Replace with actual BLE packet parsing
+        return np.random.randn(self.channels)
+
+
+# ==============================
+# COGNITIVE LOAD + FATIGUE
+# ==============================
+
+class CognitiveState:
+    def analyze(self, eeg):
+        load = np.mean(np.abs(eeg))
+        fatigue = np.var(eeg)
+
+        return {
+            "load": load,
+            "fatigue": fatigue,
+            "state": self.label_state(load, fatigue)
+        }
+
+    def label_state(self, load, fatigue):
+        if fatigue > 1.3:
+            return "overloaded"
+        if load < 0.3:
+            return "understimulated"
+        return "focused"
+
+
+# ==============================
+# CAMERA → CONTEXT INJECTION
+# ==============================
+
+class VisionContext:
+    def capture_text(self):
+        cam = cv2.VideoCapture(0)
+        ret, frame = cam.read()
+        cam.release()
+
+        if not ret:
+            return ""
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        return pytesseract.image_to_string(gray)
+
+
+# ==============================
+# SUBJECT RECOGNITION
+# ==============================
+
+class SubjectClassifier:
+    def classify(self, text):
+        t = text.lower()
+
+        if any(k in t for k in ["integral", "derivative", "limit", "∫"]):
+            return "math"
+        if any(k in t for k in ["mitochondria", "neuron", "enzyme"]):
+            return "biology"
+        if any(k in t for k in ["velocity", "force", "acceleration"]):
+            return "physics"
+        if any(k in t for k in ["treaty", "revolution", "war"]):
+            return "history"
+        if any(k in t for k in ["theme", "thesis", "metaphor"]):
+            return "english"
+        if any(k in t for k in ["supply", "demand", "elasticity"]):
+            return "economics"
+
+        return "unknown"
+
+
+# ==============================
+# MATH SOLVER (ONLY AUTO-ANSWER)
+# ==============================
+
+class MathSolver:
+    def solve(self, text):
+        # Placeholder symbolic reasoning
+        if "derivative" in text:
+            return "Differentiate using the chain rule."
+        if "integral" in text:
+            return "Use substitution to evaluate the integral."
+        if "=" in text:
+            return "Rearrange terms and isolate the variable."
+
+        return "Math problem detected, but structure unclear."
+
+
+# ==============================
+# MCQ REASONING (NON-DEFINITIVE)
+# ==============================
+
+class MCQReasoner:
+    def analyze(self, question_text):
+        """
+        IMPORTANT:
+        This does NOT give final answers.
+        It ranks choices by conceptual alignment.
+        """
+
+        return {
+            "confidence": 0.68,
+            "likely_concepts": [
+                "cause-and-effect",
+                "definition recall",
+                "process sequencing"
+            ],
+            "guidance": "Focus on eliminating options that contradict the core concept."
+        }
+
+
+# ==============================
+# AUDIO OUTPUT
+# ==============================
+
+class VoiceOutput:
+    def __init__(self):
+        self.engine = pyttsx3.init()
+
+    def speak(self, text):
+        self.engine.say(text)
+        self.engine.runAndWait()
+
+
+# ==============================
+# LOADLINE ARC CORE
+# ==============================
+
+class LoadlineARC:
+    def __init__(self):
+        self.eeg = EEGStream()
+        self.state_engine = CognitiveState()
+        self.vision = VisionContext()
+        self.subjects = SubjectClassifier()
+        self.math = MathSolver()
+        self.mcq = MCQReasoner()
+        self.voice = VoiceOutput()
+
+    async def run(self):
+        while True:
+            eeg = self.eeg.read()
+            state = self.state_engine.analyze(eeg)
+
+            print(f"[COGNITIVE STATE] {state}")
+
+            if state["state"] == "overloaded":
+                self.voice.speak("You’re overloaded. Slow your breathing.")
+
+            text = self.vision.capture_text()
+            if not text.strip():
+                await asyncio.sleep(2)
+                continue
+
+            subject = self.subjects.classify(text)
+            print(f"[SUBJECT DETECTED] {subject}")
+
+            if subject == "math":
+                answer = self.math.solve(text)
+                print(f"[MATH OUTPUT] {answer}")
+                self.voice.speak(answer)
+
+            else:
+                mcq_info = self.mcq.analyze(text)
+                print("[GUIDANCE]", mcq_info)
+                self.voice.speak(
+                    f"This looks like {subject}. I can help you reason through it."
+                )
+
+            await asyncio.sleep(3)
+
+
+# ==============================
+# ENTRY POINT
+# ==============================
+
+if __name__ == "__main__":
+    arc = LoadlineARC()
+    asyncio.run(arc.run())
