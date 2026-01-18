@@ -1,0 +1,58 @@
+import asyncio
+
+from eeg.simulator import EEGSimulator
+from eeg.ble_adapter import BLEEEGAdapter
+from cognition.state import CognitiveState
+from vision.context import VisionContext
+from reasoning.subject import SubjectClassifier
+from reasoning.math import MathSolver
+from reasoning.mcq import MCQReasoner
+from output.voice import VoiceOutput
+from integration.loadline_api import LoadlineAPI
+
+class LoadlineARC:
+    def __init__(self):
+        try:
+            self.eeg = BLEEEGAdapter()
+            self.eeg.connect()
+        except:
+            self.eeg = EEGSimulator()
+
+        self.cognition = CognitiveState()
+        self.vision = VisionContext()
+        self.subjects = SubjectClassifier()
+        self.math = MathSolver()
+        self.mcq = MCQReasoner()
+        self.voice = VoiceOutput()
+
+        self.loadline = LoadlineAPI(
+            endpoint="https://your-backend/api/cli"
+        )
+
+    async def run(self):
+        while True:
+            eeg = self.eeg.read()
+            state = self.cognition.analyze(eeg)
+
+            print("[STATE]", state)
+
+            if state["state"] == "overloaded":
+                self.voice.speak("Cognitive load is high. Slow down.")
+
+            text = self.vision.capture_text()
+            subject = self.subjects.classify(text)
+
+            self.loadline.send_cli(state["cli"], subject)
+
+            if subject == "math":
+                response = self.math.solve(text)
+                self.voice.speak(response)
+            elif subject != "unknown":
+                guidance = self.mcq.analyze(text)
+                self.voice.speak("I can guide you through this concept.")
+
+            await asyncio.sleep(2)
+
+if __name__ == "__main__":
+    arc = LoadlineARC()
+    asyncio.run(arc.run())
