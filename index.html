@@ -1,111 +1,152 @@
-import asyncio
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Loadline ARC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-# ==============================
-# HARDWARE INTERFACE
-# ==============================
-from hardware_interface.eeg_device import EEGDevice
+  <style>
+    body {
+      font-family: monospace;
+      background: #0b0b0b;
+      color: #eaeaea;
+      padding: 20px;
+    }
 
-# ==============================
-# CORE SYSTEM MODULES
-# ==============================
-from cognition.state import CognitiveState
-from vision.context import VisionContext
-from reasoning.subject import SubjectClassifier
-from reasoning.math import MathSolver
-from reasoning.mcq import MCQReasoner
-from output.voice import VoiceOutput
-from integration.loadline_api import LoadlineAPI
+    h1 {
+      color: #7cf7c2;
+    }
 
+    .panel {
+      border: 1px solid #333;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
 
-# ==================================================
-# LOADLINE ARC — MAIN ORCHESTRATOR
-# ==================================================
+    .alert {
+      color: #ff6b6b;
+      font-weight: bold;
+    }
 
-class LoadlineARC:
-    def __init__(self):
-        # EEG source (real or simulated decided internally)
-        self.eeg = EEGDevice()
+    .ok {
+      color: #7cf7c2;
+    }
+  </style>
+</head>
+<body>
 
-        # Cognitive modeling
-        self.cognition = CognitiveState()
+  <h1>🧠 Loadline ARC — Cognitive Assistant</h1>
 
-        # Context + reasoning
-        self.vision = VisionContext()
-        self.subjects = SubjectClassifier()
-        self.math = MathSolver()
-        self.mcq = MCQReasoner()
+  <div class="panel">
+    <h3>EEG State</h3>
+    <div id="load">Cognitive Load: --</div>
+    <div id="state">State: --</div>
+  </div>
 
-        # Output
-        self.voice = VoiceOutput()
+  <div class="panel">
+    <h3>Context Detection</h3>
+    <div id="subject">Subject: --</div>
+    <div id="text">Captured Text: --</div>
+  </div>
 
-        # Loadline integration (existing platform)
-        self.loadline = LoadlineAPI(
-            endpoint="https://varunsangar.github.io/LOADLINE/"
-        )
+  <div class="panel">
+    <h3>Assistant Output</h3>
+    <div id="voice">---</div>
+  </div>
 
-        print("[ARC] Initialized successfully")
+  <script>
+    /*************************************************
+     * SIMULATED EEG + CONTEXT (mirrors main.py)
+     *************************************************/
 
-    async def run(self):
-        while True:
-            # ==============================
-            # EEG → COGNITIVE STATE
-            # ==============================
-            eeg = self.eeg.read()
-            state = self.cognition.analyze(eeg)
+    function simulateEEG() {
+      // Rough proxy for cognitive load
+      return Math.abs(
+        Array.from({ length: 32 }, () => Math.random() * 10 - 5)
+          .reduce((a, b) => a + b, 0) / 32
+      );
+    }
 
-            print("[COGNITIVE STATE]", state)
+    function captureText() {
+      const samples = [
+        "Find the derivative of x squared",
+        "Which option best explains photosynthesis?",
+        "",
+        "Evaluate the integral using substitution"
+      ];
+      return samples[Math.floor(Math.random() * samples.length)];
+    }
 
-            # Voice intervention if overloaded
-            if state["state"] == "overloaded":
-                self.voice.speak(
-                    "Cognitive load is high. Slow your breathing and refocus."
-                )
+    function classifySubject(text) {
+      const t = text.toLowerCase();
+      if (t.includes("derivative") || t.includes("integral") || t.includes("=")) {
+        return "math";
+      }
+      if (t.includes("which") || t.includes("best")) {
+        return "mcq";
+      }
+      if (t.trim() === "") return "unknown";
+      return "conceptual";
+    }
 
-            # ==============================
-            # CAMERA → CONTEXT
-            # ==============================
-            text = self.vision.capture_text()
+    function mathSolve(text) {
+      if (text.includes("derivative")) {
+        return "Think about the power rule: lower the exponent, subtract one.";
+      }
+      if (text.includes("integral")) {
+        return "Try substitution to simplify the integrand.";
+      }
+      return "Break the equation into smaller steps.";
+    }
 
-            if not text or not text.strip():
-                await asyncio.sleep(2)
-                continue
+    function mcqGuide() {
+      return "Eliminate clearly wrong options, then compare reasoning.";
+    }
 
-            subject = self.subjects.classify(text)
-            print("[SUBJECT]", subject)
+    /*************************************************
+     * LOADLINE ARC LOOP (browser version)
+     *************************************************/
 
-            # ==============================
-            # SEND DATA TO LOADLINE
-            # ==============================
-            try:
-                self.loadline.send_cli(
-                    cli=state.get("cli", state.get("load")),
-                    subject=subject
-                )
-            except Exception as e:
-                print("[LOADLINE WARNING]", e)
+    async function arcLoop() {
+      const eegLoad = simulateEEG();
+      const overloaded = eegLoad > 15;
 
-            # ==============================
-            # DECISION LOGIC
-            # ==============================
-            if subject == "math":
-                response = self.math.solve(text)
-                print("[MATH RESPONSE]", response)
-                self.voice.speak(response)
+      document.getElementById("load").innerText =
+        "Cognitive Load: " + eegLoad.toFixed(2);
 
-            elif subject != "unknown":
-                guidance = self.mcq.analyze(text)
-                print("[GUIDANCE]", guidance)
-                self.voice.speak(
-                    "This is not math. I can guide you through the reasoning."
-                )
+      document.getElementById("state").innerHTML =
+        overloaded
+          ? "<span class='alert'>OVERLOADED</span>"
+          : "<span class='ok'>STABLE</span>";
 
-            await asyncio.sleep(2)
+      if (overloaded) {
+        document.getElementById("voice").innerText =
+          "Cognitive load is high. Slow your breathing.";
+      }
 
+      const text = captureText();
+      document.getElementById("text").innerText =
+        text || "(no text detected)";
 
-# ==============================
-# ENTRY POINT
-# ==============================
+      const subject = classifySubject(text);
+      document.getElementById("subject").innerText =
+        "Subject: " + subject;
 
-if __name__ == "__main__":
-    arc = LoadlineARC()
-    asyncio.run(arc.run())
+      if (subject === "math") {
+        document.getElementById("voice").innerText =
+          mathSolve(text);
+      } else if (subject !== "unknown") {
+        document.getElementById("voice").innerText =
+          mcqGuide();
+      }
+
+      // Hook for future backend / BLE / logging
+      // fetch("https://varunsangar.github.io/LOADLINE/", { ... })
+
+    }
+
+    setInterval(arcLoop, 2000);
+  </script>
+
+</body>
+</html>
