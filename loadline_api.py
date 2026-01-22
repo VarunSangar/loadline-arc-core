@@ -1,18 +1,7 @@
-import requests
-import time
+from core.state import GlobalState
 
-class LoadlineAPI:
-    def __init__(self, endpoint):
-        self.endpoint = endpoint
-
-    def send_cli(self, cli, subject):
-        payload = {
-            "timestamp": time.time(),
-            "cli": cli,
-            "subject": subject
-        }
-
-        try:
-            requests.post(self.endpoint, json=payload, timeout=1)
-        except:
-            pass
+def get_state():
+    return {
+        "cognitive_load": GlobalState.cognitive_load,
+        "task": GlobalState.current_task
+    }
