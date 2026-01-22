@@ -1,21 +1,12 @@
 # hardware_interface/eeg_device.py
 
 import numpy as np
-import asyncio
-from .device_config import USE_REAL_HARDWARE
-from .ble_client import ARC_BLE_Client
+from core.packet_parser import parse_eeg_packet
 
 class EEGDevice:
-    def __init__(self):
-        if USE_REAL_HARDWARE:
-            self.ble = ARC_BLE_Client()
-            asyncio.run(self.ble.connect())
-        else:
-            print("[EEG] Using simulated EEG")
+    def __init__(self, client=None):
+        self.client = client
 
     def read(self):
-        if USE_REAL_HARDWARE:
-            timestamp, eeg = asyncio.run(self.ble.read_packet())
-            return np.array(eeg)
-        else:
-            return np.random.randn(8)
+        raw = self.client.read() if self.client else b"\x01\x02"
+        return parse_eeg_packet(raw)
